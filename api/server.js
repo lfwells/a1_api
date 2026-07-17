@@ -22,14 +22,19 @@ app.get('/health', (req, res) => {
 // Sample Resource Route Loop
 app.get('/data', async (req, res) => {
     try {
-        const collections = await mongoose.connection.db.listCollections().toArray();
-        res.json({ message: "Hello from the permanent A1 API endpoint!", collections });
+        // Pulls directly from the 'tasks' collection we just populated
+        const tasks = await mongoose.connection.db.collection('tasks').find({}).toArray();
+        res.json({ 
+            message: "Hello from the permanent A1 API endpoint!", 
+            total_records: tasks.length,
+            data: tasks 
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Database Connection with exponential backoff retry loop logic
+// Database Connection with backoff retry loop logic
 const connectWithRetry = () => {
     console.log('Attempting MongoDB connection footprint setup...');
     mongoose.connect(MONGO_URI)

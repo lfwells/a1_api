@@ -1,0 +1,28 @@
+{
+  "name": "a1-infrastructure-api",
+  "version": "1.0.0",
+  "description": "Permanent infrastructure API endpoint for KIT328 assignment validation",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "express",
+    "mongodb",
+    "caddy",
+    "infrastructure"
+  ],
+  "author": "ICT Architecture Team",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2",
+    "mongoose": "^8.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
