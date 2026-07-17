@@ -1,0 +1,42 @@
+# /home/github-actions/infrastructure/a1_api/docker-compose.yaml
+services:
+  api_service:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: infra-a1-api-service
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://root:api_secure_pass@db_service:27017/a1_database?authSource=admin
+    depends_on:
+      - db_service
+    networks:
+      - caddy_network
+    labels:
+      caddy: kit328.ict.utas.edu.au
+      # Static route matching rule -- this path is permanently reserved
+      caddy.handle_path: /a1_api*
+      caddy.handle_path.0_reverse_proxy: "{{upstreams 5000}}"
+
+  db_service:
+    image: mongo:7.0
+    container_name: infra-a1-api-db
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=api_secure_pass
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - caddy_network
+    # Explicitly do NOT expose ports to the host -- keeps the database internal to the mesh network
+
+networks:
+  caddy_network:
+    name: caddy_network
+    external: true
+
+volumes:
+  mongo_data:
+    name: infra_a1_api_mongo_data
