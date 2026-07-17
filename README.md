@@ -21,4 +21,4 @@ git pull
 ```sh
 sudo docker compose up -d --build
 ```
-5. Then visit [https://kit328.utas.edu.au/a1_api/data](https://kit328.utas.edu.au/a1_api/data), or [https://kit328.utas.edu.au/a1_api/health](https://kit328.utas.edu.au/a1_api/health)
+5. Then visit [https://kit328.ict.utas.edu.au/a1_api/data](https://kit328.ict.utas.edu.au/a1_api/data), or [https://kit328.ict.utas.edu.au/a1_api/health](https://kit328.ict.utas.edu.au/a1_api/health)
