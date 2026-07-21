@@ -27,7 +27,7 @@ const mongoUri = `mongodb://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_HOST}:${MONG
 console.log(`Computed mongoUri with credentials masked is mongodb://*****:*****@${MONGO_HOST}:${MONGO_PORT}/${MONGO_DATABASE}`);
 
 
-const SWAGGER_PATH = '/api-docs';
+const SWAGGER_PATH = '/docs';
 
 // Resolve paths for ES Modules
 const __filename = fileURLToPath(import.meta.url);

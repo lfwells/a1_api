@@ -9,10 +9,10 @@ info:
     on their deployment setup). Through time devices may have multiple deployments with different monitoring goals
     (hence, reporting on different subsets of sounds).
 servers:
-  - url: /v1 #FIXME Had better change this to the actual server!
+  - url: https://kit328.ict.utas.edu.au/a1_api
     description: Production/live top-level path
   - url: /
-    description: Dev-time only server
+    description: Development-time only server
 security:
   - ApiKeyAuth: []
 paths:

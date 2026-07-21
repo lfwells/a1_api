@@ -26,12 +26,13 @@ Then visit [http://localhost:5001/data](http://localhost:5001/data), or [http://
 ```sh
 cd ~/a1_api
 ```
-3. Pull any changes
+3. Ensure .env containing values for MONGO_ROOT_USER and MONGO_ROOT_PASSWORD is present. Ensure api/config directory and its contents are present, since these are deliberately excluded from Git
+4. Pull any changes
 ```sh
 git pull
 ```
-4. Rebuild the container
+6. Rebuild the container
 ```sh
 sudo docker compose up -d --build
 ```
-5. Then visit [https://kit328.ict.utas.edu.au/a1_api/data](https://kit328.ict.utas.edu.au/a1_api/data), or [https://kit328.ict.utas.edu.au/a1_api/health](https://kit328.ict.utas.edu.au/a1_api/health)
+7. Then visit the _new_ path that hopefully will be James's API service... [https://kit328.ict.utas.edu.au/a1_api/data](https://kit328.ict.utas.edu.au/a1_api/data), or [https://kit328.ict.utas.edu.au/a1_api/health](https://kit328.ict.utas.edu.au/a1_api/health)
