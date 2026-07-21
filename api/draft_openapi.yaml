@@ -1,0 +1,589 @@
+# yaml-language-server: $schema=https://spec.openapis.org/oas/3.1/schema/2022-10-07
+openapi: '3.1.0'
+info:
+  title: TinyEar Monitoring API
+  version: '0.1.0'
+  description: >
+    API to read-only data from IoT acoustic ecological monitoring devices. While deployed, devices report daily
+    on battery and health status, and provide detection counts of bird species at time-tagged intervals (depending
+    on their deployment setup). Through time devices may have multiple deployments with different monitoring goals
+    (hence, reporting on different subsets of sounds).
+servers:
+  - url: /v1 #FIXME Had better change this to the actual server!
+    description: Production/live top-level path
+  - url: /
+    description: Dev-time only server
+security:
+  - ApiKeyAuth: []
+paths:
+  /devices:
+    get:
+      operationId: getDeviceIds
+      summary: Get a list of device IDs
+      description: Retrieve a list of all device IDs. Not entirely RESTful, since they are not their full URIs.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+      responses:
+        '200':
+          description: A list of device IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '401':
+          $ref: "#/components/responses/UnauthorizedApiKey"
+        '500':
+          description: Server error
+  /devices/{deviceId}:
+    get:
+      operationId: getDeviceById
+      summary: Get device details
+      description: Retrieve detailed information about a specific device.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/UnauthorizedApiKey'
+        '404':
+          $ref: '#/components/responses/NotFound'
+          description: Device not found
+        '500':
+          description: Server error
+  # Don't _want_ to add extra work for myself but perhaps having them do just _one_ extra API call rather than following an array of URIs would be better
+  /devices/{deviceId}/deployments:
+    get:
+      operationId: getDeploymentsByDeviceId
+      summary: Get deployments for a device
+      description: Retrieve all deployments of a specific device.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of deployments for the selected device.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Deployment'
+        '401':
+          $ref: '#/components/responses/UnauthorizedApiKey'
+        '404':
+          $ref: '#/components/responses/NotFound'
+          description: Device not found
+        '500':
+          description: Server error
+  # Ugh, this is then getting ridiculous in terms of duplication (and it's not needed if giving chunky response above)
+  # /devices/{deviceId}/deployments/{deploymentId}:
+  #   #FIXME If list of deployments is chunky do we _really_ need this?
+  #   get:
+  #     summary: Get details of an individual deployment for a device
+  #     parameters:
+  #       - name: deviceId
+  #         in: path
+  #         required: true
+  #         schema:
+  #           type: string
+  #       - name: deploymentId
+  #         in: path
+  #         required: true
+  #         schema:
+  #           type: string
+  #     responses:
+  #       '200':
+  #         description: Details of a single deployment
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: '#/components/schemas/Deployment'
+  #       '401':
+  #         $ref: '#/components/responses/UnauthorizedApiKey'
+  #       '404':
+  #         description: Device or deployment not found
+  #       '500':
+  #         description: Server error
+  /deployments: #FIXME As in note below. Better for this to be potentially very chunky or, since want a page that shows all the data, needs to stay like this?
+    get:
+      operationId: getDeployments
+      summary: Get deployments for all devices.
+      description: Retrieve all deployments.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+      responses:
+        '200':
+          description: List of deployments across all devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items: #FIXME _This_ could be a candidate for dehydrated list or URIs
+                  $ref: '#/components/schemas/Deployment'
+        '401':
+          $ref: '#/components/responses/UnauthorizedApiKey'
+        '500':
+          description: Server error
+  /deployments/{deploymentId}:
+    get:
+      operationId: getDeploymentById
+      summary: Get a single deployment's details.
+      description: Retrieve a single deployment.
+      parameters:
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A single deployment's details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deployment'
+        '401':
+          $ref: '#/components/responses/UnauthorizedApiKey'
+        '404':
+          $ref: '#/components/responses/NotFound'
+          description: Deployment not found
+        '500':
+          description: Server error
+  /deployments/{deploymentId}/health:
+    get:
+      operationId: getHealthByDeploymentId
+      summary: Get daily health reports for a deployment
+      description: Retrieve daily battery and health status reports for a specific deployment.
+      parameters:
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/StartParam'
+        - $ref: '#/components/parameters/EndParam'
+      responses:
+        '200':
+          description: List of daily health reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HealthReport'
+        '401':
+          $ref: '#/components/responses/UnauthorizedApiKey'
+        '404':
+          $ref: '#/components/responses/NotFound'
+          description: Deployment not found
+        '500':
+          description: Server error
+  /deployments/{deploymentId}/detections:
+    get:
+      operationId: getDetectionsByDeploymentId
+      summary: Get detection counts for a deployment
+      description: Retrieve detection counts of bird species reported by the deployment at varying time-tagged intervals.
+      parameters:
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/StartParam'
+        - $ref: '#/components/parameters/EndParam'
+      responses:
+        '200':
+# FIXME I know it would likely be better to provide this as URIs to have students explore hydration, but I'd like to make it match more how they might use the data (as a table)
+          description: List of date-stamped detection reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatedDetection'
+          # description: List of detection detail URIs
+          # content:
+          #   application/json:
+          #     schema:
+          #       $ref: '#/components/schemas/UriList'
+        '401':
+          $ref: '#/components/responses/UnauthorizedApiKey'
+        '404':
+          $ref: '#/components/responses/NotFound'
+          description: Deployment not found
+        '500':
+          description: Server error
+    # Is an option, but I likely won't implement it
+    # /deployments/{deploymentId}/:reportDate:
+#   /deployments/{deploymentId}/detections/{detectionId}:
+#   #TODO Expand this... I actually really don't want to go down to the level of individual detections when devices really report collections of detections
+#     get:
+#       summary: Get an individual detection count from a deployment
+#       description: Retrieve an individual detection count
+#       parameters:
+#         - name: deploymentId
+#           in: path
+#           required: true
+#           schema:
+#             type: string
+#         - name: detectionId
+#           in: path
+#           required: true
+#           schema:
+#             type: string
+#       responses:
+#         '200':
+#           description: An individual species detection count
+#           content:
+#             application/json:
+#               schema:
+#                 $ref: '#/components/schemas/DetectionCount'
+#         '401':
+#           $ref: '#/components/responses/UnauthorizedApiKey'
+#         '404':
+#           description: Deployment or detection not found
+#         '500':
+#           description: Server error
+# #  /detections: #Example convenience wrapper that aggregates detections
+# #    get:
+# #      parameters:
+# #        - $ref: '#/components/parameters/StartParam'
+# #        - $ref: '#/components/parameters/EndParam'
+# #      # Return uris of the individual detection events
+#   /detections/{detectionId}:
+#     get:
+#       summary: Get a specific individual detection count
+#       responses:
+#         '200':
+#           description: Details of a particular detection
+#           content:
+#             application/json:
+#               schema:
+#                 type: array
+#         '401':
+#           $ref: '#/components/responses/UnauthorizedApiKey'
+#         '404':
+#           description: Detection not found
+#         '500':
+#           description: Server error
+  #FIXME Able to add dynamicism to the data? Beyond, for instance, having it know about 'future' events but filter what it reports to those up to yesterday?
+  #FIXME Able to use other verbs?
+  /sounds:
+    get:
+      operationId: getSounds
+      summary: Get a list of all sounds that are known to this service. This endpoint is public.
+      security: []
+      responses:
+        '200':
+          description: List of all sounds reported by any device at any time
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sound'
+        '500':
+          description: Server error
+
+# Could add another end point that aggregates across detections
+# Well the AI did a good job, but how detections are reported needs a lot of expansion, with some more payload schemas added below (for instance, detections probably should be timestamped collections of sounds, but I _guess_ they could be collections of timestamped detections (i.e., free-floating detections rather than collections related to a monitoring goal), and certainly need some indication of duration the counts cover)
+# Ah, I think my idea matched how devices would report, with arrays/collections of species-count items, but perhaps not necessary when showing the data?
+components:
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: The page number to retrieve.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+        example: 1
+    StartParam:
+      name: start
+      in: query
+      schema:
+        type: string
+        format: date
+    EndParam:
+      name: end
+      in: query
+      schema:
+        type: string
+        format: date
+  schemas:
+    Uri:
+      type: string
+      format: uri
+    UriArray:
+      type: array
+      items:
+        $ref: '#/components/schemas/Uri'
+    GeoJsonPoint:
+      type: object
+      required:
+        - type
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum:
+            - Point
+        coordinates:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: number
+          description: "Longitude first, then Latitude. [longitude, latitude]"
+          examples:
+            - [147.3272, -42.8821]
+    Sound: #Need to consider if want a 'master list' of all sounds, which would mean they get an id but, more importantly, an enum tag like geophony, anthrophony
+      type: object
+      required:
+        - species
+      properties:
+        species:
+          type: string
+          description: The species of top-level category of the sound
+          examples:
+            - "Swift parrot"
+            - "Chainsaw"
+            - "Car"
+        callType:
+          type: string
+          description: The call type belonging to this species
+          examples:
+            - "alarm"
+# #v1 of sound count is chunkier { sound: pair, count }
+#     SoundCount_v1: #May be overkill, but may be reusable
+#       type: object
+#       required:
+#         - sound
+#         - count
+#       properties:
+#         sound:
+#           $ref: '#/components/schemas/Sound'
+#         count:
+#           type: integer
+#           minimum: 0
+#V2 combines sound properties with count... if that's possible without diplication
+    SoundCount: #May be overkill, but may be reusable
+      allOf: #Combination of/extension of Sound
+        - $ref: '#/components/schemas/Sound'
+        - type: object
+          required:
+            - count
+          properties:
+            count:
+              type: integer
+              minimum: 0
+    Device:
+      type: object
+      required:
+        - id
+        - model
+        - deploymentUris
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the device
+        model:
+          type: string
+          description: Model name or number of the device
+        description:
+          type: string
+          description: Optional description of the device
+        deploymentUris:
+          $ref: '#/components/schemas/UriArray'
+          description: URIs for this device's deployments
+    Deployment:
+      type: object
+      required:
+        - id
+        - deviceId
+        - deviceUri
+        - startDate
+        - location
+        - monitoringGoal
+        - targetSounds
+        - healthUri
+        - detectionsUri
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the deployment
+        deviceId:
+          type: string
+          description: Identifier of the device deployed
+        deviceUri:
+          description: URI of the deployed device
+          schema:
+            $ref: '#/components/schemas/Uri'
+        startDate:
+          type: string
+          format: date
+          description: Deployment start date
+        endDate:
+          type: string
+          format: date
+          description: Deployment end date, if ended
+        location:
+          $ref: '#/components/schemas/GeoJsonPoint'
+        monitoringGoal:
+          type: string
+          description: A short description of the deployment's goal, such as target species or behaviour
+        targetSounds: # FIXME Could be an endpoint instead?
+          type: array
+          description: List of target sounds for this deployment
+          items:
+            $ref: '#/components/schemas/Sound'
+        healthUri: 
+          $ref: '#/components/schemas/Uri'
+          description: URI of the health reports collection for this deployment
+        detectionsUri:
+          $ref: '#/components/schemas/Uri'
+          description: URI of the detections collection for this deployment
+    HealthReport: #Shouldn't this be more self-describing by including the device to which it relates as well (even though that may be required by the end point)?
+      type: object
+      required:
+        - deploymentId
+        - reportDate
+        # - time
+        - batteryLevel
+        - warnings
+      properties:
+        deploymentId:
+          type: string
+          description: Deployment to which this health report relates
+        reportDate:
+          type: string
+          format: date
+          description: Date of the health report
+        # Simplifying from reality to just be the report for a particular day
+        # time:
+        #   type: string
+        #   format: time
+        #   description: Time of day the health report was received
+        batteryLevel:
+          type: number
+          format: float
+          minimum: 0 #Yes, even though shouldn't have power to transmit this
+          maximum: 100
+          description: Battery level percentage (0-100)
+        warnings:
+          type: string
+          description: Possibly empty description of any problems onboard the device
+    DatedDetection: #An alternative to a granular datestamped single-soung count; best suits reports where the same subset of species are covered
+      type: object
+      required:
+        - deploymentId
+        - reportDate
+        # - sounds
+        - detections
+      properties:
+        deploymentId:
+          type: string
+          description: Deployment to which this health report relates
+        reportDate:
+          type: string
+          format: date
+          description: Date on which detections were made
+        #FIXME This made sense in my mind when I did it originally since it was going to be a top-level property _before_ the array of (arrays of detection counts)
+        # sounds:
+        #   type: array
+        #   items:
+        #     $ref: '#/components/schemas/Sound'
+        #   description: Sounds included in the collection of detections
+        detections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SoundCount'
+#FIXME Eliminating this from first version I think
+    # DetectionCount:
+    #   type: object
+    #   required:
+    #     - datestamp #FIXME May simplify this to be at the day scale
+    #     - sound
+    #     - count
+    #   properties:
+    #     # Seems very chunky if potentially repeating these in an array
+    #     # timestamp:
+    #     #   type: string
+    #     #   format: date-time
+    #     #   description: End time of the detection interval
+    #     reportDate:
+    #       type: string
+    #       format: date
+    #       description: Date on which detections were made
+    #     sound:
+    #       $ref: '#/components/schemas/Sound'
+    #     count:
+    #       type: integer
+    #       minimum: 0
+    #       description: Number of detections of that sound over some interval
+    ErrorMessageJson:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  responses:
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessageJson'
+    UnauthorizedApiKey:
+      description: Unauthorized. The API key is missing, invalid, or expired.
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+            example: 'ApiKey realm="Tiny Ear", header="X-API-Key"' #FIXME Should match the hint we will provide
+          description: Indicates the required authentication scheme.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: integer
+                example: 401
+              error:
+                type: string
+                example: "Unauthorized"
+              message:
+                type: string
+                example: "A valid API key is required to access this resource."

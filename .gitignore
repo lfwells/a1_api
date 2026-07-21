@@ -1,1 +1,7 @@
 docker-compose.override.yaml
+
+logs/
+
+.env
+node_modules
+apiKeyAliases.txt

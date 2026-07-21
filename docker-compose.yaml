@@ -6,9 +6,14 @@ services:
       dockerfile: Dockerfile
     container_name: infra-a1-api-service
     restart: always
+    volumes: #Makes (private) config available to the image for loading secrets like the API key - alias mapping
+      - ./api/config:/usr/src/app/config:ro
     environment:
-      - NODE_ENV=production
-      - MONGO_URI=mongodb://root:api_secure_pass@db_service:27017/a1_database?authSource=admin
+      NODE_ENV: production
+      #MONGO_USER and MONGO_PASSWORD set in .env (other values are also set there to override these during development)
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_DATABASE: a1_database
     depends_on:
       - db_service
     networks:
@@ -24,8 +29,8 @@ services:
     container_name: infra-a1-api-db
     restart: always
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=api_secure_pass
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
     volumes:
       - mongo_data:/data/db
     networks:

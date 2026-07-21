@@ -1,0 +1,3 @@
+# Do not bake in the secret information in .env or stored under the config directory; mount it later
+.env
+api/config
