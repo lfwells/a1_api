@@ -32,6 +32,13 @@ paths:
                 type: array
                 items:
                   type: string
+          headers:
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+            X-Page:
+              $ref: '#/components/headers/X-Page'
+            X-Per-Page:
+              $ref: '#/components/headers/X-Per-Page'
         '401':
           $ref: "#/components/responses/UnauthorizedApiKey"
         '500':
@@ -134,6 +141,14 @@ paths:
                 type: array
                 items: #FIXME _This_ could be a candidate for dehydrated list or URIs
                   $ref: '#/components/schemas/Deployment'
+          headers:
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+            X-Page:
+              $ref: '#/components/headers/X-Page'
+            X-Per-Page:
+              $ref: '#/components/headers/X-Per-Page'
+
         '401':
           $ref: '#/components/responses/UnauthorizedApiKey'
         '500':
@@ -186,6 +201,13 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/HealthReport'
+          headers:
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+            X-Page:
+              $ref: '#/components/headers/X-Page'
+            X-Per-Page:
+              $ref: '#/components/headers/X-Per-Page'
         '401':
           $ref: '#/components/responses/UnauthorizedApiKey'
         '404':
@@ -222,6 +244,13 @@ paths:
           #   application/json:
           #     schema:
           #       $ref: '#/components/schemas/UriList'
+          headers:
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+            X-Page:
+              $ref: '#/components/headers/X-Page'
+            X-Per-Page:
+              $ref: '#/components/headers/X-Per-Page'
         '401':
           $ref: '#/components/responses/UnauthorizedApiKey'
         '404':
@@ -587,3 +616,27 @@ components:
               message:
                 type: string
                 example: "A valid API key is required to access this resource."
+  headers:
+    X-Total-Count:
+      description: The total number of items in the collection.
+      schema:
+        type: integer
+        minimum: 0
+        examples:
+          - 0
+          - 100
+    X-Page:
+      description: The current page number.
+      schema:
+        type: integer
+        minimum: 1
+        examples:
+          - 2
+    X-Per-Page:
+      description: The number of items per page.
+      schema:
+        type: integer
+        minimum: 1
+        examples:
+          - 20
+        

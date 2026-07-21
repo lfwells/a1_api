@@ -36,16 +36,12 @@ export const logger = winston.createLogger({
   level: 'info',
   format: logFormat,
   transports: [
-    // 1. Write all logs info-level and below to app.log
-    new winston.transports.File({ 
-      filename: join(__dirname, 'logs', 'app.log'),
-      level: 'info' 
-    }),
+    // 1. Write all logs info-level and below to the daily log file
+    dailyRotateTransport,
     // 2. Also output to the console for real-time visibility during development
     new winston.transports.Console({
       format: consoleFormat
-    }),
-    dailyRotateTransport
+    })
   ]
 });
 

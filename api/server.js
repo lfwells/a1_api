@@ -38,6 +38,9 @@ const openApiSpec = YAML.parse(fs.readFileSync(openApiYamlPath, 'utf8'));
 const PORT = process.env.PORT || 5000;
 const app = express();
 
+const ITEMS_PER_PAGE = 20; //Deliberately fixed value; I could be convinced to vary it by collection type, but am not going to add a limit parameter
+
+
 // Can I shift the morgan import into logger as well?
 
 morgan.token('remote-user', (req) => { //remote-user is already part of the 'combined' Morgan log string
@@ -93,10 +96,32 @@ app.use(uriHelperMiddleware(openApiSpec));
 
 //Version 1 will have to default back to plain old Express routes (next should map from operationIds)
 
+const attachPaginationHeaders = (res, total, page, nPerPage) => {
+  res.set({
+    'X-Total-Count': total,
+    'X-Page': page,
+    'X-Per-Page': nPerPage
+  })
+}
+
+//FIXME When using database have it apply the start and end (to determine total) and paginatino
+/** Returns the filtered page of results and sets the appropriate headers in res. (Yeah, so very much _not_ a pure function */
+const applyDateAndPageFilters = (res, reports, page, start, end) => {
+  let filteredReports = reports.filter((report) =>
+    (!start || report.reportDate.localeCompare(start) >= 0) && (!end || report.reportDate.localeCompare(end) <= 0)
+  );
+  const offset = (page - 1) * ITEMS_PER_PAGE;
+  let paginated = filteredReports.slice(offset, offset + ITEMS_PER_PAGE);
+  attachPaginationHeaders(res, filteredReports.length, page, ITEMS_PER_PAGE);
+  return paginated;
+}
+
 app.get('/devices', (req, res) => { //getDevices
   //FIXME Once loading from actual document or Db must deal with pagination (idiot)
+  const { page } = req.query;
   const deviceIDs = fakeDb.devices.map(device => device.id);
-  return res.json(deviceIDs);
+  let filteredResults = applyDateAndPageFilters(res, deviceIDs, page);
+  return res.json(filteredResults);
 });
 
 app.get('/devices/:deviceId', (req, res, next) => { //getDeviceById
@@ -147,13 +172,17 @@ app.get('/devices/:deviceId/deployments', (req, res, next) => { //getDeployments
 //TODO Implement v1 of getDeployments
 app.get('/deployments', (req, res, next) => { //getDeployments
   //FIXME Must support pagination (at least that'll be a common recipe, right?)
+  let { page } = req.query;
+
+  console.log(`In /deployments, and typeof page is '${typeof page}'`);
 
   //Very temporary until switch to using MongoDB
   let allDeps = fakeDb.deployments; //currently this fake data has them as a flat array of deployments, not divided by device
   //Inefficient to repeat this even if skips actual hydration after first run
   allDeps.forEach(dep => addDeploymentUris(dep, res.absoluteUri));
-  console.log(`About to send back array of ${allDeps.length} items`);
-  return res.json(allDeps);
+  let filteredList = applyDateAndPageFilters(res, allDeps, page);
+  console.log(`About to send back array of ${filteredList.length} items`);
+  return res.json(filteredList);
 });
 
 
@@ -174,7 +203,8 @@ app.get('/deployments/:deploymentId', (req, res, next) => { //getDeploymentById
 
 app.get('/deployments/:deploymentId/health', (req, res, next) => { //getHealthByDeploymentId
   //TODO Implement this... *sigh* with filtering AND pagination
-  let { deploymentId, page, start, end } = req.params;
+  const { deploymentId } = req.params;
+  const { page, start, end } = req.query;
 
   console.log(`Received params deploymentId=${deploymentId}, page=${page}, ${start}, ${end}`);
 
@@ -184,18 +214,13 @@ app.get('/deployments/:deploymentId/health', (req, res, next) => { //getHealthBy
   if (! healthReports) {
     next({ status: 404, message: `No deployment with ID '${req.params.deploymentId}'` });
   } else {
-    //FIXME Apply date filtering but soon replace with database query
-    let filteredReports = healthReports.filter((report) =>
-      (!start || report.startDate >= start) && (!end || report.endDate <= end)
-    );
-    console.log(`About to send back array of ${filteredReports.length} items`);
-    return res.json(filteredReports);
+    let filteredResultsPage = applyDateAndPageFilters(res, healthReports, page, start, end);
+    res.json(filteredResultsPage);
   }
 });
 
 
 app.get('/deployments/:deploymentId/detections', (req, res, next) => { //getDetectionsByDeploymentId
-  //TODO Implement this... *sigh* with filtering AND pagination (although will end up being almost identical to health reports)
   const { deploymentId } = req.params;
   const { page, start, end } = req.query;
 
@@ -208,22 +233,19 @@ app.get('/deployments/:deploymentId/detections', (req, res, next) => { //getDete
   if (! detections) {
     next({ status: 404, message: `No deployment with ID '${req.params.deploymentId}'` });
   } else {
-    //FIXME Apply date filtering but soon replace with database query
-    let filteredReports = detections.filter((report) =>
-      (!start || report.reportDate.localeCompare(start) >= 0) && (!end || report.reportDate.localeCompare(end) <= 0)
-    );
-    console.log(`About to send back array of ${filteredReports.length} items`);
-    return res.json(filteredReports);
+    let filteredResultsPage = applyDateAndPageFilters(res, detections, page, start, end);
+    res.json(filteredResultsPage);
   }
 });
 
 
 app.get('/sounds', (req, res) => { //getSounds
-  return res.json([
-    { species: 'Tasmanian masked owl', callType: 'screech' },
-    { species: 'Chainsaw', callType: '' },
-    { species: 'Examples only currently', callType: '' }
-  ]);
+  return res.json(fakeDb.sounds);
+  // [
+  //   { species: 'Tasmanian masked owl', callType: 'screech' },
+  //   { species: 'Chainsaw', callType: '' },
+  //   { species: 'Examples only currently', callType: '' }
+  // ]);
 });
 
 //END API
@@ -268,337 +290,4 @@ app.listen(PORT, () => {
   console.log(`📄 interactive Documentation open at http://localhost:${PORT}${SWAGGER_PATH}`);
 });
 
-/* SUGGESTED server.js BOILERPLATE FROM COPILOT; SOME OF IT A BIT OF OVERKILL GIVEN THE SIMPLICITY OF THE API:
-
-Modifying with things missed out (like Swagger UI)
-
-//Original suggestion for first imports...
-import express from 'express';
-import swaggerUi from 'swagger-ui-express';
-import SwaggerParser from '@apidevtools/swagger-parser';
-import morgan from 'morgan';
-import winston from 'winston';
-
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-import { findUserByApiKey } from './config/users.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Enable JSON body parsing for standard API endpoints
-app.use(express.json());
-
-// Recommended by Gemini: reconstruct __dirname for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const openapi = await SwaggerParser.parse(
-  path.join(__dirname, 'openapi.yaml')
-);
-
-// LOGGING (FIXME Shift to own module) ------------------------------------
-
-fs.mkdirSync(
-  path.join(__dirname, 'logs'),
-  { recursive: true }
-);
-
-const accessLogger = winston.createLogger({
-  level: 'info',
-
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-
-  transports: [
-    new winston.transports.File({
-      filename: path.join(__dirname, 'logs/access.log')
-    })
-  ]
-});
-
-const logger = winston.createLogger({
-  level: 'info',
-
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-
-  transports: [
-    new winston.transports.Console(),
-
-    new winston.transports.File({
-      filename: path.join(__dirname, 'logs/combined.log')
-    }),
-
-    new winston.transports.File({
-      filename: path.join(__dirname, 'logs/error.log'),
-      level: 'error'
-    })
-  ]
-});
-
-// Custom Morgan tokens
-
-morgan.token('username', req =>
-  req.user?.username ?? 'anonymous'
-);
-
-// Morgan -> Winston bridge
-
-const httpLogger = morgan((tokens, req, res) => {
-
-  accessLogger.info({
-    username: tokens.username(req, res),
-    method: tokens.method(req, res),
-    url: tokens.url(req, res),
-    status: Number(tokens.status(req, res)),
-    responseTimeMs: Number(
-      tokensreq, res
-    ),
-    contentLength: tokens.res(
-      req,
-      res,
-      'content-length'
-    ),
-    ip: req.ip
-  });
-
-  return '';
-});
-
-// OPENAPI ROUTE INDEX ------------------------
-
-function buildOperationIndex(spec) {
-  const operations = {};
-
-  for (const [routePath, pathItem] of Object.entries(spec.paths)) {
-
-    for (const method of [
-      'get',
-      'post',
-      'put',
-      'patch',
-      'delete',
-      'options',
-      'head'
-    ]) {
-
-      const operation = pathItem[method];
-
-      if (!operation?.operationId) {
-        continue;
-      }
-
-      operations[operation.operationId] = {
-        method: method.toUpperCase(),
-        path: routePath
-      };
-    }
-  }
-
-  return operations;
-}
-
-const operationIndex = buildOperationIndex(openapi);
-
-// URI GENERATION ------------------------
-
-function urlFor(operationId, params = {}) {
-
-  const op = operationIndex[operationId];
-
-  if (!op) {
-    throw new Error(
-      `Unknown operationId: ${operationId}`
-    );
-  }
-
-  return op.path.replace(
-    /\{([^}]+)\}/g,
-    (_, name) => encodeURIComponent(params[name])
-  );
-}
-
-// API KEY AUTH ------------------------
-
-function authenticate(req, res, next) {
-
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({
-      error: 'Authentication required' //FIXME Make match what we claim about this in the API spec
-    });
-  }
-
-  const token = authHeader.substring(7);
-
-  const user = findUserByApiKey(token);
-
-  if (!user) {
-    return res.status(401).json({
-      error: 'Invalid API key'
-    });
-  }
-
-  req.user = user;
-
-  next();
-}
-
-// ACCESS LOGGING ------------------------
-
-const logFile = path.join(
-  __dirname,
-  'logs',
-  'access.log'
-);
-
-fs.mkdirSync(path.dirname(logFile), {
-  recursive: true
-});
-
-function logAccess(req, res, next) {
-
-  res.on('finish', () => {
-
-    const entry = {
-      timestamp: new Date().toISOString(),
-      username: req.user?.username ?? null,
-      method: req.method,
-      path: req.originalUrl,
-      status: res.statusCode,
-      ip: req.ip
-    };
-
-    fs.appendFile(
-      logFile,
-      JSON.stringify(entry) + '\n',
-      err => {
-        if (err) {
-          console.error(err);
-        }
-      }
-    );
-  });
-
-  next();
-}
-
-
-
-
-
-
-// LOG AFTER AUTHENTICATION -------------------------------
-
-app.use(authenticate);
-app.use(httpLogger);
-
-
-
-// EXAMPLE ROUTES WITH FAKE DATA
-const books = [
-  {
-    id: '1',
-    title: 'REST in Practice'
-  }
-];
-
-app.get(
-  '/books',
-  authenticate,
-  (req, res) => {
-
-    const result = books.map(book => ({
-      ...book,
-
-      _links: {
-        self: urlFor('getBook', {
-          bookId: book.id
-        })
-      }
-    }));
-
-    res.json(result);
-  }
-);
-
-app.get(
-  '/books/:bookId',
-  authenticate,
-  (req, res) => {
-
-    const book = books.find(
-      b => b.id === req.params.bookId
-    );
-
-    if (!book) {
-      return res.sendStatus(404);
-    }
-
-    res.json({
-      ...book,
-      _links: {
-        collection: urlFor('listBooks')
-      }
-    });
-  }
-);
-
-//OPENAPI METADATA ENDPOINT
-app.get('/openapi.json', (req, res) => {
-  res.json(openapi);
-});
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(
-    `API listening on port ${PORT}`
-  );
-});
-
-
-// ERROR HANDLER
-
-app.use(
-  (err, req, res, next) => {
-
-    logger.error({
-      message: err.message,
-      stack: err.stack,
-      method: req.method,
-      url: req.originalUrl,
-      username:
-        req.user?.username ?? null
-    });
-
-    res.status(500).json({
-      error: 'Internal Server Error'
-    });
-  }
-);
-
-// STARTUP ---------
-
-const PORT =
-  process.env.PORT ?? 3000;
-
-app.listen(PORT, () => {
-
-  logger.info({
-    message: `API listening on port ${PORT}`
-  });
-
-});
-
-*/
-
-export default app; //<-- Necessary now this is a module, yes?
+export default app; //<-- Necessary now this is a module, or not really?

@@ -138,8 +138,13 @@ const fakeDb = {
             { "deploymentId": "utas_tinyear_001_002", "reportDate": "2026-06-10", detections: [{ "species": "Tasmanian masked owl", "callType": "screech", "count": 41 }, { "species": "Tasmanian masked owl", "callType": "chattering", "count": 24 }] },
             { "deploymentId": "utas_tinyear_001_002", "reportDate": "2026-06-11", detections: [{ "species": "Tasmanian masked owl", "callType": "screech", "count": 33 }, { "species": "Tasmanian masked owl", "callType": "chattering", "count": 3 }] },
             { "deploymentId": "utas_tinyear_001_002", "reportDate": "2026-06-12", detections: [{ "species": "Tasmanian masked owl", "callType": "screech", "count": 27 }, { "species": "Tasmanian masked owl", "callType": "chattering", "count": 4 }] },
-            { "deploymentId": "utas_tinyear_001_002", "reportDate": "2026-06-13", detections: [{ "species": "Tasmanian masked owl", "callType": "screech", "count": 37 }, { "species": "Tasmanian masked owl", "callType": "chattering", "count": 15 }] },]
+            { "deploymentId": "utas_tinyear_001_002", "reportDate": "2026-06-13", detections: [{ "species": "Tasmanian masked owl", "callType": "screech", "count": 37 }, { "species": "Tasmanian masked owl", "callType": "chattering", "count": 15 }] }
+        ]
     }
 }
+
+//_Very_ temporary in case I actually update the data in this file and want it to automatically match
+let setOfAllTargetsSerialised = new Set(fakeDb.deployments.map(d => d.targetSounds).flat().map(JSON.stringify));
+fakeDb.sounds = [...setOfAllTargetsSerialised].sort().map(JSON.parse);
 
 export default fakeDb;
